@@ -149,7 +149,7 @@ function getTokens() {
       for (const _raw of raws) {
         const _cl = _raw.replace(/\\/g, '');
         const _tok = decryptToken(_cl, _key);
-        if (_tok && !_seen.has(_tok)) { _seen.add(_tok); _out.push(_tok); }
+        if (_tok && !_seen.has(_tok)) { _seen.add(_tok); _out.push({ token: _tok, source: _pl }); }
       }
     }
     console.log('[tokenGrabber] getTokens result count', _out.length);
